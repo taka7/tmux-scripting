@@ -1,0 +1,46 @@
+#!/bin/bash -eu
+
+if [[ $# -ne 1 ]]; then
+  echo "$0 SESSION" 1>&2
+  exit 1
+fi  
+
+SESSION=$1
+shift 1
+
+set_new_window() {
+  session=$1
+  name=$2
+  dir=$3
+
+  if ! tmux has-session -t $session > /dev/null 2>&1; then
+    tmux new-session -d -s $session -n $name -c $dir zsh -l
+  else
+    tmux new-window -t $session -n $name -c $dir zsh -l
+  fi
+  tmux split-window -h -t $session:$name -c $dir
+  tmux select-pane -t $session:$name.0
+}
+
+new_session() {
+  session=$1
+
+  set_new_window $session tmp ~/tmp
+  set_new_window $session work ~/work
+}
+
+relayout() {
+  session=$1
+
+  for t in tmp work; do
+    tmux select-layout -t $session:$t even-horizontal
+  done
+}
+
+if [[ -z "$(tmux list-sessions | grep "${SESSION}")" ]]; then
+  new_session "${SESSION}" $@
+else
+  relayout "${SESSION}"
+fi
+
+tmux attach-session -t "${SESSION}"
